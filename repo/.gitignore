@@ -25,3 +25,4 @@ Thumbs.db
 # Local audit/test artifacts
 .tmp/
 .cache/
+.cashe/
