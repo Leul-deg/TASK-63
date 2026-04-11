@@ -1,0 +1,4 @@
+#!/bin/sh
+# Maven Wrapper script
+exec "$(dirname "$0")/.mvn/wrapper/mvnw-launcher.sh" "$@" 2>/dev/null || \
+  mvn "$@"
