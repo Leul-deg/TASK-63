@@ -43,12 +43,12 @@ class WebhookServiceTest {
                 localNetworkValidator);
 
         IntegrationKey key = new IntegrationKey();
-        key.setId(UUID.randomUUID());
+        assignId(key, UUID.randomUUID());
         key.setKeyId("rk_test");
         key.setSecret("integration-secret");
 
         endpoint = new WebhookEndpoint();
-        endpoint.setId(UUID.randomUUID());
+        assignId(endpoint, UUID.randomUUID());
         endpoint.setIntegrationKey(key);
         endpoint.setName("Local board");
         endpoint.setTargetUrl("http://board.local/webhook");
@@ -83,5 +83,16 @@ class WebhookServiceTest {
 
         verify(localNetworkValidator).requireLocalTarget("http://board.local/webhook");
         verify(restTemplate, never()).postForEntity(any(String.class), any(), any(Class.class));
+    }
+
+    private static void assignId(Object entity, UUID id) {
+        try {
+            java.lang.reflect.Field idField =
+                    com.reslife.api.common.BaseEntity.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(entity, id);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

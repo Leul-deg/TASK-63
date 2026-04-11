@@ -138,27 +138,22 @@ class NotificationAccessControlTest {
     }
 
     private static Notification notificationFor(UUID recipientId, boolean acknowledged) {
-        User recipient = mock(User.class);
-        when(recipient.getId()).thenReturn(recipientId);
+        User recipient = new User();
+        assignBaseEntityId(recipient, recipientId);
 
-        Notification n = mock(Notification.class);
-        when(n.getId()).thenReturn(NOTIFICATION_ID);
-        when(n.getRecipient()).thenReturn(recipient);
-        when(n.getTitle()).thenReturn("Important");
-        when(n.getBody()).thenReturn("Read me");
-        when(n.getType()).thenReturn(NotificationType.INFO);
-        when(n.getPriority()).thenReturn(NotificationPriority.HIGH);
-        when(n.getCategory()).thenReturn(NotificationCategory.SETTLEMENT);
-        when(n.isRead()).thenReturn(acknowledged);
-        when(n.getReadAt()).thenReturn(acknowledged ? Instant.now() : null);
-        when(n.isRequiresAcknowledgment()).thenReturn(true);
-        when(n.isAcknowledged()).thenReturn(acknowledged);
-        when(n.getAcknowledgedAt()).thenReturn(acknowledged ? Instant.now() : null);
-        when(n.getTemplateKey()).thenReturn(null);
-        when(n.getVariables()).thenReturn(null);
-        when(n.getRelatedEntityType()).thenReturn(null);
-        when(n.getRelatedEntityId()).thenReturn(null);
-        when(n.getCreatedAt()).thenReturn(Instant.now());
+        Notification n = new Notification();
+        assignBaseEntityId(n, NOTIFICATION_ID);
+        assignCreatedAt(n, Instant.now());
+        n.setRecipient(recipient);
+        n.setTitle("Important");
+        n.setBody("Read me");
+        n.setType(NotificationType.INFO);
+        n.setPriority(NotificationPriority.HIGH);
+        n.setCategory(NotificationCategory.SETTLEMENT);
+        n.setRequiresAcknowledgment(true);
+        if (acknowledged) {
+            n.markAcknowledged();
+        }
         return n;
     }
 
@@ -179,5 +174,27 @@ class NotificationAccessControlTest {
         UsernamePasswordAuthenticationToken token =
                 UsernamePasswordAuthenticationToken.authenticated(details, null, details.getAuthorities());
         return authentication(token);
+    }
+
+    private static void assignBaseEntityId(Object entity, UUID id) {
+        try {
+            java.lang.reflect.Field idField =
+                    com.reslife.api.common.BaseEntity.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(entity, id);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void assignCreatedAt(Object entity, Instant createdAt) {
+        try {
+            java.lang.reflect.Field createdAtField =
+                    com.reslife.api.common.BaseEntity.class.getDeclaredField("createdAt");
+            createdAtField.setAccessible(true);
+            createdAtField.set(entity, createdAt);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

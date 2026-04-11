@@ -64,7 +64,8 @@ class AuthControllerWebMvcTest {
 
     @Test
     void login_returnsCurrentUserPayload() throws Exception {
-        when(authService.login(any(), any())).thenReturn(buildDetails(USER_ID, RoleName.STUDENT));
+        ReslifeUserDetails details = buildDetails(USER_ID, RoleName.STUDENT);
+        when(authService.login(any(), any())).thenReturn(details);
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

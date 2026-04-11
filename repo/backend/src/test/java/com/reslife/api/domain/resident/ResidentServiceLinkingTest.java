@@ -55,7 +55,7 @@ class ResidentServiceLinkingTest {
         User linkedStudent = buildUser(RoleName.STUDENT);
 
         Resident existing = new Resident();
-        existing.setId(residentId);
+        assignId(existing, residentId);
         existing.setEmail("student@reslife.local");
         existing.setLinkedUser(linkedStudent);
 
@@ -95,5 +95,16 @@ class ResidentServiceLinkingTest {
         User user = mock(User.class);
         when(user.getUserRoles()).thenReturn(Set.of(userRole));
         return user;
+    }
+
+    private static void assignId(Object entity, UUID id) {
+        try {
+            java.lang.reflect.Field idField =
+                    com.reslife.api.common.BaseEntity.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(entity, id);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

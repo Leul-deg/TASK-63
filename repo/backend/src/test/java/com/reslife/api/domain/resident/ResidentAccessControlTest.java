@@ -96,6 +96,10 @@ class ResidentAccessControlTest {
         when(residentService.filterOptions())
                 .thenReturn(new FilterOptionsResponse(List.of(), List.of()));
         Resident linkedResident = new Resident();
+        linkedResident.setFirstName("Student");
+        linkedResident.setLastName("User");
+        linkedResident.setEmail("student@reslife.local");
+        linkedResident.setStudentId("S-100");
         linkedResident.setDateOfBirth(LocalDate.of(2005, 1, 1));
         when(residentService.findByLinkedUserId(STUDENT_USER_ID)).thenReturn(linkedResident);
     }

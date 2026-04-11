@@ -33,6 +33,13 @@ jest.mock('react-router-dom', () => ({
 const { api } = require('../api/client');
 
 describe('ResidentFormPage', () => {
+  const completeBasicsStep = (container) => {
+    fireEvent.change(screen.getByPlaceholderText('Jane'), { target: { value: 'Alex' } });
+    fireEvent.change(screen.getByPlaceholderText('Smith'), { target: { value: 'Chen' } });
+    fireEvent.change(screen.getByPlaceholderText('jane.smith@example.edu'), { target: { value: 'alex@campus.edu' } });
+    fireEvent.change(container.querySelector('input[type="date"]'), { target: { value: '2005-01-01' } });
+  };
+
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
@@ -64,13 +71,12 @@ describe('ResidentFormPage', () => {
   });
 
   test('shows duplicate warning after debounced self-check', async () => {
+    let container;
     await act(async () => {
-      render(<ResidentFormPage />);
+      ({ container } = render(<ResidentFormPage />));
     });
 
-    fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Alex' } });
-    fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Chen' } });
-    fireEvent.change(screen.getByLabelText(/date of birth/i), { target: { value: '2005-01-01' } });
+    completeBasicsStep(container);
 
     await act(async () => {
       jest.advanceTimersByTime(700);
@@ -81,13 +87,15 @@ describe('ResidentFormPage', () => {
   });
 
   test('shows free-text building input when Other / unlisted is selected', async () => {
+    let container;
     await act(async () => {
-      render(<ResidentFormPage />);
+      ({ container } = render(<ResidentFormPage />));
     });
 
+    completeBasicsStep(container);
     fireEvent.click(screen.getByRole('button', { name: /next/i }));
 
-    const buildingSelect = screen.getByDisplayValue('— Select —');
+    const buildingSelect = screen.getAllByRole('combobox')[1];
     fireEvent.change(buildingSelect, { target: { value: '__other__' } });
 
     await waitFor(() => {
