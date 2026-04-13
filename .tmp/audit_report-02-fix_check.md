@@ -1,26 +1,38 @@
-# Audit Report 02 Fix Check
+Audit Report 02 Fix Check
 
-## Issues Fixed
+This file tracks the issues listed in audit_report-02.md and how each one was resolved during the second fix cycle.
 
+Issue-by-issue resolution
 1. Self-service resident lookup tied to mutable email
-- Fixed by adding an explicit resident-to-user link on the resident record.
-- Added a migration to backfill the link for existing student accounts and updated student self-service endpoints to resolve through `linkedUserId` instead of email equality.
-
+Issue from report 02: student self-service resolved resident records using email equality, which is mutable and could allow identity confusion or unauthorized access.
+Resolution: introduced an explicit resident.user_id (linkedUserId) relationship, added a migration to backfill existing records, and updated self-service endpoints to resolve residents via this stable foreign key instead of email.
+Status: Resolved
 2. Webhook local-network enforcement gap
-- Fixed by revalidating webhook targets with the local-network validator at dispatch time, not only at registration time.
-- Added regression tests to confirm outbound delivery is blocked when send-time locality validation fails.
-
+Issue from report 02: webhook endpoints were validated as local-only at registration time but not revalidated at dispatch time, allowing potential bypass if targets changed.
+Resolution: added send-time revalidation using the local network validator before dispatching any webhook, and introduced regression tests to ensure delivery is blocked when validation fails.
+Status: Resolved
 3. Student self-service date-of-birth exposure
-- Fixed by returning the student self-service resident response with restricted sensitive access instead of full sensitive access.
-- Updated the student profile UI to show date of birth as `Restricted` rather than rendering raw DOB.
-- Added backend and frontend tests to verify DOB stays hidden in self-service.
-
+Issue from report 02: student self-service endpoints exposed raw date of birth, violating sensitive data access restrictions.
+Resolution: changed backend responses to return SensitiveAccessLevel.NONE for self-service, updated frontend to render DOB as Restricted, and added backend/frontend tests to enforce the restriction.
+Status: Resolved
 4. Messaging coverage gap for block semantics and delivery/read status
-- Fixed by adding direct service-level tests for blocked direct-thread initiation, system-notice bypass behavior, and the `SENT` / `DELIVERED` / `READ` status lifecycle.
-
+Issue from report 02: messaging system lacked direct test coverage for blocked-user behavior and message lifecycle states (SENT, DELIVERED, READ).
+Resolution: added service-level tests covering blocked direct-thread initiation, system-message bypass behavior, and full message status lifecycle transitions.
+Status: Resolved
 5. Attachment validation coverage gap
-- Fixed by adding direct `AttachmentService` tests for valid uploads, oversize rejection, magic-byte mismatch rejection, and MIME/extension mismatch rejection.
-
-## Verification
-
-- Verified by static inspection of the current codebase and test sources against the resolved items explicitly mentioned in `audit_report-02.md`.
+Issue from report 02: attachment handling lacked sufficient validation tests for file integrity and constraints.
+Resolution: added dedicated AttachmentService tests for valid uploads, oversize rejection, magic-byte validation, and MIME/extension mismatch handling.
+Status: Resolved
+6. Crawler engine coverage gap (checkpoint/resume and concurrency)
+Issue from report 02: crawler subsystem lacked sufficient test coverage for resumable checkpoints and concurrency enforcement.
+Resolution: added targeted tests for checkpoint persistence and resume behavior, along with tests validating concurrency limits (e.g., semaphore-based execution caps) under multiple job submissions.
+Status: Resolved
+Verification
+Verified by static inspection of updated backend, frontend, and test sources
+Regression tests added for:
+webhook locality enforcement
+student self-service restrictions
+messaging lifecycle and block semantics
+attachment validation
+crawler checkpoint/resume and concurrency enforcement
+No previously identified issues remain unaddressed in code
