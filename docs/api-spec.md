@@ -1,296 +1,309 @@
-# API Spec
+# API Specification: Meridian Check-In & Commerce
 
 ## Overview
+This document defines the RESTful HTTP API for the `Meridian Check-In & Commerce Operations Portal`.
 
-This document defines the initial HTTP API for the `Meridian Check-In & Commerce Operations Portal`.
+**Stack Specifications:**
+- **Base Path:** `/api/v1`
+- **Transport:** HTTP/HTTPS
+- **Content-Type:** `application/json`
 
-Stack assumptions:
-- Backend language: `rust`
-- Backend framework: `actix-web`
-- Database: `postgresql`
-- API style: JSON over HTTP
-
-Base path:
-- `/api`
-
-Common response rules:
-- Success responses return JSON
-- Errors return:
+**Standard Behaviors:**
+- Successful requests return appropriate `2xx` HTTP codes with JSON bodies.
+- Pagination is standard for all collection returns (`GET` requests on plural nouns), implemented via `?page=1&limit=50` or `?cursor=xyz`.
+- Errors return a standardized format:
 
 ```json
 {
   "error": {
-    "code": "string_code",
-    "message": "Human-readable message"
+    "code": "ERROR_CODE_STRING",
+    "message": "Human-readable description of what went wrong",
+    "details": {
+      "field_name": "Specific validation failure message"
+    }
   }
 }
 ```
 
-## Health
+---
 
-### `GET /api/health`
+## 1. System Health & Utilities
 
-Purpose:
-- Service health check
-
-Response:
-
+### `GET /api/v1/health`
+**Purpose:** Service health check and load balancer hook.
+**Access:** Public
+**Response (200 OK):**
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "version": "1.0.0",
+  "uptime_seconds": 3600
 }
 ```
 
-## Authentication
+---
 
-### `POST /api/auth/login`
+## 2. Authentication
 
-Request:
-
+### `POST /api/v1/auth/login`
+**Purpose:** Authenticate an operator and begin a session.
+**Request:**
 ```json
 {
-  "email": "operator@example.com",
-  "password": "secret"
+  "email": "operator@meridian.test",
+  "password": "secure_password"
 }
 ```
-
-Response:
-
+**Response (200 OK):**
 ```json
 {
   "user": {
     "id": "uuid",
     "name": "Alex Doe",
-    "email": "operator@example.com",
-    "role": "admin"
+    "email": "operator@meridian.test",
+    "role": "Operator"
   },
-  "token": "session-or-jwt-token"
+  "token": "jwt.or.session.token",
+  "expires_in": 3600
 }
 ```
 
-### `POST /api/auth/logout`
-
-Purpose:
-- End authenticated session
-
-Response:
-
+### `POST /api/v1/auth/logout`
+**Purpose:** Terminate current session.
+**Access:** Authenticated
+**Response (200 OK):**
 ```json
-{
-  "success": true
-}
+{ "success": true }
 ```
 
-### `GET /api/auth/me`
+### `GET /api/v1/auth/me`
+**Purpose:** Return the profile of the currently authenticated user.
+**Access:** Authenticated
+**Response (200 OK):** *(Same user object as login)*
 
-Purpose:
-- Return current authenticated user
+---
 
-Response:
+## 3. Locations
 
+### `GET /api/v1/locations`
+**Purpose:** List Meridian sites, counters, or check-in stations.
+**Query Parameters:**
+- `active` (bool) - Filter by active status
+**Response (200 OK):**
 ```json
 {
-  "id": "uuid",
-  "name": "Alex Doe",
-  "email": "operator@example.com",
-  "role": "admin"
-}
-```
-
-## Locations
-
-### `GET /api/locations`
-
-Purpose:
-- List Meridian sites, counters, or check-in stations
-
-Response:
-
-```json
-[
-  {
-    "id": "uuid",
-    "name": "Main Lobby",
-    "code": "MAIN-LOBBY",
-    "active": true
-  }
-]
-```
-
-## Check-Ins
-
-### `GET /api/checkins`
-
-Query params:
-- `location_id`
-- `status`
-- `from`
-- `to`
-- `q`
-
-Response:
-
-```json
-{
-  "items": [
+  "data": [
     {
       "id": "uuid",
-      "customer_name": "Jane Smith",
-      "reference_no": "CHK-1001",
-      "location_id": "uuid",
-      "status": "checked_in",
-      "checked_in_at": "2026-04-11T10:30:00Z"
+      "name": "Main Lobby Counter A",
+      "code": "MAIN-A",
+      "active": true
     }
   ],
-  "total": 1
+  "meta": { "total_count": 1 }
 }
 ```
 
-### `POST /api/checkins`
+### `POST /api/v1/locations` *(Admin/Manager Only)*
+**Request:** `{"name": "New Counter", "code": "NEW-1"}`
+**Response (201 Created):** `Location object`
 
-Request:
+---
 
+## 4. Check-Ins
+
+### `GET /api/v1/checkins`
+**Purpose:** Paginated list of check-ins.
+**Query Parameters:**
+- `location_id` (uuid)
+- `status` (Expected, CheckedIn, Completed, Cancelled)
+- `date_from` (ISO8601)
+- `date_to` (ISO8601)
+- `search` (Partial match on customer_name or reference_no)
+- `page`, `limit`
+
+**Response (200 OK):**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "reference_no": "CHK-1002",
+      "customer_name": "Jane Smith",
+      "location_id": "uuid",
+      "status": "CheckedIn",
+      "notes": "VIP Guest",
+      "checked_in_at": "2026-04-13T10:30:00Z",
+      "completed_at": null
+    }
+  ],
+  "meta": {
+    "total_count": 120,
+    "page": 1,
+    "limit": 50
+  }
+}
+```
+
+### `POST /api/v1/checkins`
+**Purpose:** Create a new check-in or walk-in record.
+**Request:**
 ```json
 {
   "customer_name": "Jane Smith",
-  "reference_no": "CHK-1001",
   "location_id": "uuid",
   "notes": "Walk-in customer"
 }
 ```
-
-Response:
-
+**Response (201 Created):**
 ```json
 {
   "id": "uuid",
-  "status": "checked_in"
+  "reference_no": "CHK-1003",
+  "status": "CheckedIn"
 }
 ```
 
-### `POST /api/checkins/{id}/complete`
-
-Purpose:
-- Mark a check-in as completed
-
-Response:
-
+### `POST /api/v1/checkins/{id}/status`
+**Purpose:** Progress or cancel a check-in.
+**Request:**
+```json
+{
+  "status": "Completed", 
+  "reason": "Service Finished" 
+}
+```
+**Response (200 OK):**
 ```json
 {
   "id": "uuid",
-  "status": "completed"
+  "status": "Completed",
+  "completed_at": "2026-04-13T11:00:00Z"
 }
 ```
 
-### `POST /api/checkins/{id}/cancel`
+---
 
-Purpose:
-- Cancel an active check-in
+## 5. Catalog & Products
 
-Request:
-
+### `GET /api/v1/products`
+**Purpose:** List available products/services.
+**Response (200 OK):**
 ```json
 {
-  "reason": "Customer left before service"
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Premium Service Package",
+      "sku": "SRV-PRM",
+      "price": 149.99,
+      "active": true
+    }
+  ]
 }
 ```
 
-## Commerce
+---
 
-### `GET /api/products`
+## 6. Orders & Commerce
 
-Purpose:
-- List products or services sold at Meridian counters
+### `GET /api/v1/orders`
+**Purpose:** Retrieve latest orders, with filtering capabilities.
+**Query Parameters:** `status`, `checkin_id`, `date_from`, `date_to`
 
-### `POST /api/orders`
-
-Request:
-
+### `POST /api/v1/orders`
+**Purpose:** Create a cart/order attached to a check-in.
+**Request:**
 ```json
 {
   "checkin_id": "uuid",
   "items": [
     {
       "product_id": "uuid",
-      "quantity": 2
+      "quantity": 1
+    }
+  ]
+}
+```
+**Response (201 Created):**
+```json
+{
+  "id": "uuid",
+  "order_no": "ORD-5001",
+  "status": "Open",
+  "total_amount": 149.99,
+  "items": [
+    {
+      "product_id": "uuid",
+      "quantity": 1,
+      "unit_price": 149.99,
+      "line_total": 149.99
     }
   ]
 }
 ```
 
-Response:
-
+### `POST /api/v1/orders/{id}/pay`
+**Purpose:** Record a successful payment.
+**Request:**
+```json
+{
+  "payment_method": "Card",
+  "amount": 149.99
+}
+```
+**Response (200 OK):**
 ```json
 {
   "id": "uuid",
-  "order_no": "ORD-1001",
-  "status": "open",
-  "total_amount": 49.98
+  "status": "Paid"
 }
 ```
 
-### `POST /api/orders/{id}/pay`
+---
 
-Request:
+## 7. Reporting & Dashboard
 
-```json
-{
-  "payment_method": "cash",
-  "amount": 49.98
-}
-```
-
-Response:
-
-```json
-{
-  "id": "uuid",
-  "status": "paid"
-}
-```
-
-## Dashboard
-
-### `GET /api/dashboard/summary`
-
-Purpose:
-- Return top-level portal metrics
-
-Response:
-
+### `GET /api/v1/dashboard/summary`
+**Purpose:** Retrieve top-level operational metrics.
+**Query Parameters:** `date_from`, `date_to`, `location_id`
+**Response (200 OK):**
 ```json
 {
   "active_checkins": 12,
-  "completed_today": 45,
-  "orders_today": 31,
-  "revenue_today": 1240.50
+  "completed_checkins": 45,
+  "total_orders": 31,
+  "revenue_total": 1240.50,
+  "average_wait_time_mins": 8.5
 }
 ```
 
-## Admin
+---
 
-### `GET /api/admin/users`
-- List platform users
+## 8. Admin 
 
-### `POST /api/admin/users`
-- Create platform user
+### `GET /api/v1/admin/users`
+**Response:** Paginated list of users with roles.
 
-### `PATCH /api/admin/users/{id}`
-- Update role or active state
+### `POST /api/v1/admin/users`
+**Request:** Provision a new operator/manager.
 
-### `GET /api/admin/settings`
-- Read system settings
+### `PATCH /api/v1/admin/users/{id}`
+**Request:** Update role, active status, or reset password.
 
-### `PUT /api/admin/settings`
-- Update system settings
+### `GET /api/v1/admin/audit-logs`
+**Response:** System audit log trail for security/compliance.
 
-## Suggested Status Codes
+---
 
-- `200 OK` for reads and successful actions
-- `201 Created` for new resources
-- `400 Bad Request` for validation errors
-- `401 Unauthorized` for unauthenticated requests
-- `403 Forbidden` for role violations
-- `404 Not Found` for missing resources
-- `409 Conflict` for duplicate or invalid state transitions
-- `500 Internal Server Error` for unexpected failures
+## Standard Error Codes Matrix
+
+| HTTP Code | Suggested Occurrences / Meaning                                   |
+|-----------|-------------------------------------------------------------------|
+| `400`     | Schema validation failures, invalid date formats, missing fields. |
+| `401`     | Missing or invalid JWT/Session.                                   |
+| `403`     | User role insufficient (e.g. Operator trying to reach `/admin`).  |
+| `404`     | Requested UUID entity does not exist.                             |
+| `409`     | Lifecycle error (e.g., Paying an already paid order, State clash) |
+| `422`     | Logical unprocessable entity (e.g., negative payment amount)      |
+| `500`     | Unhandled server crashes, database disconnects.                   |

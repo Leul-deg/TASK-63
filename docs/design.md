@@ -1,202 +1,238 @@
-# Design
+# Design: Meridian Check-In & Commerce Operations Portal
 
-## System Goal
+## 1. System Goal
+The `Meridian Check-In & Commerce Operations Portal` is a full-stack application for managing:
+- Customer or visitor physical check-ins.
+- Counter or location-based walk-in operations.
+- Simple point-of-sale commerce and order handling.
+- Administrative settings, RBAC (Role-Based Access Control), and user management.
 
-`Meridian Check-In & Commerce Operations Portal` is a full-stack application for managing:
-- customer or visitor check-ins
-- counter or location operations
-- simple commerce and order handling
-- administrative settings and user access
+**Target Personas:**
+- **Counter Operator:** Handles check-in flow, assists customers, processes orders and payments.
+- **Location Manager:** Oversees daily location operations, handles overrides and local reporting.
+- **System Admin:** Manages globally scoped settings, provisions new users and locations, accesses systemic reporting.
 
-## Stack
+## 2. Recommended Stack
 
-- Frontend language: `rust`
-- Frontend framework: `yew`
-- Backend language: `rust`
-- Backend framework: `actix-web`
-- Database: `postgresql`
+- **Frontend Language:** `rust`
+- **Frontend Framework:** `yew` (compiled to WebAssembly)
+- **Frontend Styling:** Raw CSS or standard utility framework (e.g., Tailwind CSS)
+- **Backend Language:** `rust`
+- **Backend Framework:** `actix-web` (async HTTP framework)
+- **Database:** `postgresql` (primary operational datastore)
+- **Serialization:** `serde` for JSON data interchange
 
-## High-Level Architecture
+## 3. High-Level Architecture
 
-```text
-Yew frontend
-    ↓
-Actix-web HTTP API
-    ↓
-PostgreSQL
+```mermaid
+graph TD
+    Client[Web Browser (Yew SPA)] -->|HTTP API| Server[Actix-Web Server]
+    Server -->|SQL / sqlx| DB[(PostgreSQL)]
+    
+    subgraph Client-Side
+        AuthStore[Session Store]
+        UI[Component Tree]
+    end
+    
+    subgraph Server-Side
+        Router[API Router]
+        Controllers[Handlers]
+        Services[Business Logic]
+        Repo[Data Access Layer]
+    end
+    
+    Router --> Controllers
+    Controllers --> Services
+    Services --> Repo
 ```
 
-## Frontend Design
+## 4. Frontend Design
 
-### Main areas
+### Main Application Areas
+- **Authentication:** Login, password reset.
+- **Dashboard:** Operational summary, key metrics.
+- **Check-ins:** Queue management, current active visitors, check-in log.
+- **Orders / Commerce:** Product catalog, cart management, checkout.
+- **Locations:** Managing sites and physical counters.
+- **Admin Settings:** User provisioning, roles, system-wide configuration.
 
-- Login
-- Dashboard
-- Check-ins
-- Orders / Commerce
-- Locations
-- Admin settings
+### Frontend Responsibilities
+- Route-based navigation utilizing Yew Router.
+- Authenticated session handling (e.g., managing JWTs or session cookies).
+- Form validation before submission to minimize bad requests.
+- Data tables with built-in client-side or server-driven pagination, filtering, and sorting.
+- Dashboard summary rendering using lightweight graphing/charting.
 
-### Frontend responsibilities
-
-- route-based navigation
-- authenticated session handling
-- form validation before submission
-- data tables, filters, and action buttons
-- dashboard summary rendering
-
-### Suggested page structure
-
+### Suggested Page Structure
 ```text
 frontend/
   src/
-    app/
-    pages/
-    components/
-    services/
-    models/
+    app.rs              # Root application component and router
+    pages/              # High-level route components
+      login/
+      dashboard/
+      checkins/
+      commerce/
+      admin/
+    components/         # Reusable UI widgets
+      tables/
+      forms/
+      layout/
+        navbar/
+        sidebar/
+    services/           # HTTP API client wrappers
+    models/             # Typed data structures (often shared with backend)
+    store/              # Frontend state management (if applicable)
 ```
 
-## Backend Design
+## 5. Backend Design
 
-### Backend responsibilities
+### Backend Responsibilities
+- Authentication and authorization layer.
+- Enforcing business rules for the check-in lifecycle.
+- Managing order creation, inventory (if tracked), and payment processing rules.
+- Request payload validation and error normalization.
+- Data access, including reporting queries and aggregations.
 
-- authentication and authorization
-- business rules for check-in lifecycle
-- order and payment processing rules
-- validation and error normalization
-- data access and reporting queries
-
-### Suggested module structure
-
+### Suggested Module Structure
 ```text
 backend/
   src/
-    auth/
-    checkins/
-    orders/
-    products/
-    locations/
-    dashboard/
-    admin/
-    db/
-    errors/
+    main.rs             # Application entrypoint
+    server.rs           # Actix-web server setup
+    auth/               # Identity and access control
+    checkins/           # Check-in lifecycle management
+    orders/             # Commerce and order workflows
+    products/           # Product catalog
+    locations/          # Location provisioning
+    dashboard/          # Pre-aggregated reporting data
+    admin/              # User and system setting management
+    db/                 # Database connection pooling and utilities
+    errors/             # Global error handling and custom domain errors
+    middleware/         # Request logging, auth checks
 ```
 
-## Core Domain Model
+## 6. Core Domain Model
 
 ### User
-
-- `id`
-- `name`
-- `email`
-- `password_hash`
-- `role`
-- `active`
-- `created_at`
-- `updated_at`
+- `id` (UUID, PK)
+- `name` (String)
+- `email` (String, Unique)
+- `password_hash` (String)
+- `role` (Enum: Root, Admin, Manager, Operator)
+- `active` (Boolean)
+- `created_at` (Timestamp)
+- `updated_at` (Timestamp)
 
 ### Location
-
-- `id`
-- `name`
-- `code`
-- `active`
+- `id` (UUID, PK)
+- `name` (String)
+- `code` (String, Unique)
+- `active` (Boolean)
+- `created_at` (Timestamp)
 
 ### CheckIn
-
-- `id`
-- `reference_no`
-- `customer_name`
-- `location_id`
-- `status`
-- `notes`
-- `checked_in_at`
-- `completed_at`
-- `cancelled_at`
+- `id` (UUID, PK)
+- `reference_no` (String, Unique)
+- `customer_name` (String)
+- `location_id` (UUID, FK -> Location.id)
+- `status` (Enum: Expected, CheckedIn, Completed, Cancelled)
+- `notes` (String)
+- `checked_in_at` (Timestamp, Nullable)
+- `completed_at` (Timestamp, Nullable)
+- `cancelled_at` (Timestamp, Nullable)
 
 ### Product
-
-- `id`
-- `name`
-- `sku`
-- `price`
-- `active`
+- `id` (UUID, PK)
+- `name` (String)
+- `sku` (String, Unique)
+- `price` (Decimal)
+- `active` (Boolean)
 
 ### Order
-
-- `id`
-- `order_no`
-- `checkin_id`
-- `status`
-- `total_amount`
-- `created_at`
+- `id` (UUID, PK)
+- `order_no` (String, Unique)
+- `checkin_id` (UUID, FK -> CheckIn.id, Nullable)
+- `status` (Enum: Open, Paid, Cancelled, Refunded)
+- `total_amount` (Decimal)
+- `created_at` (Timestamp)
+- `updated_at` (Timestamp)
 
 ### OrderItem
-
-- `id`
-- `order_id`
-- `product_id`
-- `quantity`
-- `unit_price`
-- `line_total`
+- `id` (UUID, PK)
+- `order_id` (UUID, FK -> Order.id)
+- `product_id` (UUID, FK -> Product.id)
+- `quantity` (Integer)
+- `unit_price` (Decimal)
+- `line_total` (Decimal)
 
 ### Payment
+- `id` (UUID, PK)
+- `order_id` (UUID, FK -> Order.id)
+- `payment_method` (Enum: Cash, Card, Invoice)
+- `amount` (Decimal)
+- `paid_at` (Timestamp)
 
-- `id`
-- `order_id`
-- `payment_method`
-- `amount`
-- `paid_at`
+## 7. State Transitions
 
-## State Transitions
-
-### Check-in lifecycle
-
-```text
-created -> checked_in -> completed
-created -> checked_in -> cancelled
+### Check-In Lifecycle
+```mermaid
+stateDiagram-v2
+    [*] --> Created
+    Created --> CheckedIn: Customer Arrives
+    CheckedIn --> Completed: Service Provided
+    Created --> Cancelled: No Show
+    CheckedIn --> Cancelled: Customer Left Early
+    Completed --> [*]
+    Cancelled --> [*]
 ```
 
-### Order lifecycle
-
-```text
-open -> paid
-open -> cancelled
+### Order Lifecycle
+```mermaid
+stateDiagram-v2
+    [*] --> Open
+    Open --> Paid: Payment Processed
+    Open --> Cancelled: Abandoned
+    Paid --> Refunded: Refund Issued
+    Paid --> [*]
+    Cancelled --> [*]
+    Refunded --> [*]
 ```
 
-## Security Design
+## 8. Security Design
 
-- authenticated access for all non-public routes
-- role-based admin access
-- hashed passwords
-- server-side validation of all write operations
-- audit-friendly timestamps on important entities
+- **Authentication:** All non-public routes require a valid session or JWT.
+- **Authorization:** Role-Based Access Control (RBAC) enforced via Actix-web middlewares (e.g., only Managers/Admins can access `/api/admin/*`).
+- **Data Protection:** 
+  - Hashed passwords using Argon2 or bcrypt.
+  - Server-side validation of all write operations.
+  - CORS configuration restricted to specific front-end domains.
+  - CSRF protections for session-based auth.
+- **Auditing:** Audit-friendly timestamps (`created_at`, `updated_at`, `action_by`) on all critical entities.
 
-## Database Notes
+## 9. Database Strategy & Notes
 
-- PostgreSQL is the system of record
-- use UUID primary keys where possible
-- index common filter fields:
+- **RDBMS:** PostgreSQL acts as the definitive system of record.
+- **Primary Keys:** Use `UUIDv4` primary keys to prevent enumeration attacks and simplify distributed merging.
+- **Indices:** Index standard filter fields to optimize reporting:
   - `reference_no`
   - `location_id`
   - `status`
   - `created_at`
+- **Soft Deletes:** Where necessary (e.g., Users, Locations), prefer an `active: false` flag over hard deleting rows to maintain historical referential integrity.
 
-## Non-Goals for First Version
+## 10. Non-Goals (First Version)
 
-- advanced inventory management
-- external payment gateway integration
-- multi-tenant partitioning
-- offline desktop sync
+- Advanced multi-warehouse inventory management.
+- External automated payment gateway integration (Stripe, Square) - Cash/Card will be recorded manually.
+- Complex multi-tenant partitioning (SaaS architecture).
+- Offline or desktop synchronization (assumes stable online connection).
 
-## Delivery Recommendation
+## 11. Delivery Recommendation Plan
 
-Build in this order:
-
-1. Auth and app shell
-2. Locations and users
-3. Check-in flow
-4. Orders and payments
-5. Dashboard and reporting
-6. Admin settings and polish
+1. **Phase 1: Shell & Core:** Authentication, app layout, User profile management.
+2. **Phase 2: Master Data:** Locations and Product catalogs.
+3. **Phase 3: Front Desk:** End-to-end check-in flow with state transitions.
+4. **Phase 4: Commerce:** Orders, cart building, and simulated payment handling.
+5. **Phase 5: Insights:** Dashboards, metrics, reporting APIs, and frontend visualizations.
+6. **Phase 6: Polish:** Admin settings, advanced error handling, and end-to-end testing.
