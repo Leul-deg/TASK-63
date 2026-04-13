@@ -18,8 +18,8 @@ import java.util.concurrent.atomic.AtomicLong;
 @Component
 public class IntegrationRateLimiter {
 
-    static final int  LIMIT     = 60;
-    static final long WINDOW_MS = 60_000L;
+    public static final int  LIMIT     = 60;
+    public static final long WINDOW_MS = 60_000L;
 
     private final ConcurrentHashMap<String, Deque<Long>> windows     = new ConcurrentHashMap<>();
     private final AtomicLong                             lastCleanup = new AtomicLong(System.currentTimeMillis());

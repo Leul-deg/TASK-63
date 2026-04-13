@@ -1,6 +1,9 @@
-package com.reslife.api.domain.messaging;
+package com.reslife.api.API_TESTS;
 
 import com.reslife.api.domain.integration.IntegrationAuthFilter;
+import com.reslife.api.domain.messaging.BlockedException;
+import com.reslife.api.domain.messaging.MessagingController;
+import com.reslife.api.domain.messaging.MessagingService;
 import com.reslife.api.domain.user.AccountStatus;
 import com.reslife.api.domain.user.Role;
 import com.reslife.api.domain.user.RoleName;

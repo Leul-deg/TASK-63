@@ -1,7 +1,11 @@
-package com.reslife.api.domain.resident;
+package com.reslife.api.API_TESTS;
 
 import com.reslife.api.config.SecurityConfig;
 import com.reslife.api.domain.integration.IntegrationAuthFilter;
+import com.reslife.api.domain.resident.ImportCommitResponse;
+import com.reslife.api.domain.resident.ImportPreviewResponse;
+import com.reslife.api.domain.resident.ResidentImportExportController;
+import com.reslife.api.domain.resident.ResidentImportExportService;
 import com.reslife.api.domain.user.*;
 import com.reslife.api.security.ReslifeUserDetails;
 import com.reslife.api.security.UserDetailsServiceImpl;

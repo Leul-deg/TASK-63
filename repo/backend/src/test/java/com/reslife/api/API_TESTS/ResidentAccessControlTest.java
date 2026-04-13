@@ -1,8 +1,13 @@
-package com.reslife.api.domain.resident;
+package com.reslife.api.API_TESTS;
 
 import com.reslife.api.domain.housing.BookingPolicyEnforcementService;
 import com.reslife.api.domain.housing.ResidentBookingService;
 import com.reslife.api.domain.integration.IntegrationAuthFilter;
+import com.reslife.api.domain.resident.FilterOptionsResponse;
+import com.reslife.api.domain.resident.Resident;
+import com.reslife.api.domain.resident.ResidentController;
+import com.reslife.api.domain.resident.ResidentService;
+import com.reslife.api.domain.resident.StudentController;
 import com.reslife.api.domain.user.AccountStatus;
 import com.reslife.api.domain.user.Role;
 import com.reslife.api.domain.user.RoleName;
@@ -73,21 +78,15 @@ class ResidentAccessControlTest {
 
     @BeforeEach
     void setup() throws Exception {
-        // IntegrationAuthFilter is mocked — configure it to pass through the chain so
-        // requests to non-integration paths are not silently swallowed.
         doAnswer(inv -> {
             FilterChain chain = inv.getArgument(2);
             chain.doFilter(inv.getArgument(0), inv.getArgument(1));
             return null;
         }).when(integrationAuthFilter).doFilter(any(), any(), any());
 
-        // AccountStatusFilter (real @Component bean) performs a findById check for every
-        // ReslifeUserDetails principal.  Return an ACTIVE user for any UUID so the filter
-        // passes through without invalidating the session.
-        User active = new User(); // accountStatus defaults to ACTIVE via field initialiser
+        User active = new User();
         when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(active));
 
-        // Stub service layer so controller method bodies don't NPE when auth passes.
         when(residentService.search(any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
         Resident otherResident = new Resident();
@@ -106,11 +105,6 @@ class ResidentAccessControlTest {
 
     // ── Student denied from resident directory ────────────────────────────────
 
-    /**
-     * STUDENT role must receive 403 when accessing the resident directory.
-     * The @PreAuthorize(STAFF_ROLES) on ResidentController.list() blocks before
-     * the method body runs, so the principal type does not matter here.
-     */
     @Test
     void student_isDeniedFromResidentDirectory() throws Exception {
         mockMvc.perform(get("/api/residents")
@@ -120,10 +114,6 @@ class ResidentAccessControlTest {
 
     // ── Student denied from another resident's detail ─────────────────────────
 
-    /**
-     * STUDENT role must receive 403 when fetching any specific resident by ID,
-     * regardless of whether that ID belongs to them or another resident.
-     */
     @Test
     void student_isDeniedFromOtherResidentDetail() throws Exception {
         mockMvc.perform(get("/api/residents/{id}", OTHER_RESIDENT_ID)
@@ -133,11 +123,6 @@ class ResidentAccessControlTest {
 
     // ── Student allowed to fetch their own resident record ────────────────────
 
-    /**
-     * STUDENT role must receive 200 from the dedicated self-service endpoint.
-     * Uses a real ReslifeUserDetails principal so that StudentController can
-     * call principal.getUserId() and look up the linked resident.
-     */
     @Test
     void student_isAllowedToFetchSelfView() throws Exception {
         mockMvc.perform(get("/api/students/me")
@@ -168,13 +153,6 @@ class ResidentAccessControlTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * Builds a {@link RequestPostProcessor} that sets the security context to a
-     * fully-authenticated {@link ReslifeUserDetails} with the given role.
-     * Unlike {@code @WithMockUser}, this produces the correct principal type so
-     * that {@code @AuthenticationPrincipal ReslifeUserDetails} injection works
-     * in controller methods that actually execute (i.e. for "allowed" tests).
-     */
     private static RequestPostProcessor asUser(UUID userId, RoleName roleName) {
         ReslifeUserDetails details = buildDetails(userId, roleName);
         UsernamePasswordAuthenticationToken token =

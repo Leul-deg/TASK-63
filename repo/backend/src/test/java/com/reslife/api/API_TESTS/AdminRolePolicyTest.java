@@ -1,4 +1,4 @@
-package com.reslife.api.admin;
+package com.reslife.api.API_TESTS;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reslife.api.config.SecurityConfig;
@@ -11,6 +11,9 @@ import com.reslife.api.domain.user.UserRepository;
 import com.reslife.api.domain.user.UserRole;
 import com.reslife.api.security.ReslifeUserDetails;
 import com.reslife.api.security.UserDetailsServiceImpl;
+import com.reslife.api.admin.AdminUserController;
+import com.reslife.api.admin.AdminUserService;
+import com.reslife.api.admin.UpdateStatusRequest;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

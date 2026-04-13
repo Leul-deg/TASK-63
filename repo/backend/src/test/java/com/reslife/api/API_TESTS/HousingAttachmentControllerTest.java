@@ -1,9 +1,14 @@
-package com.reslife.api.domain.housing;
+package com.reslife.api.API_TESTS;
 
 import com.reslife.api.config.SecurityConfig;
 import com.reslife.api.domain.integration.IntegrationAuthFilter;
 import com.reslife.api.domain.resident.ResidentService;
 import com.reslife.api.domain.user.*;
+import com.reslife.api.domain.housing.AgreementAttachment;
+import com.reslife.api.domain.housing.AgreementAttachmentRepository;
+import com.reslife.api.domain.housing.HousingAgreement;
+import com.reslife.api.domain.housing.HousingController;
+import com.reslife.api.domain.housing.HousingService;
 import com.reslife.api.security.ReslifeUserDetails;
 import com.reslife.api.security.UserDetailsServiceImpl;
 import com.reslife.api.storage.AttachmentService;

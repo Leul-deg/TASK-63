@@ -1,10 +1,15 @@
-package com.reslife.api.domain.housing;
+package com.reslife.api.API_TESTS;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reslife.api.config.SecurityConfig;
 import com.reslife.api.domain.integration.IntegrationAuthFilter;
 import com.reslife.api.domain.resident.ResidentController;
 import com.reslife.api.domain.resident.ResidentService;
+import com.reslife.api.domain.housing.BookingPolicyEnforcementService;
+import com.reslife.api.domain.housing.ResidentBooking;
+import com.reslife.api.domain.housing.ResidentBookingRequest;
+import com.reslife.api.domain.housing.ResidentBookingService;
+import com.reslife.api.domain.housing.ResidentBookingStatus;
 import com.reslife.api.domain.user.*;
 import com.reslife.api.security.ReslifeUserDetails;
 import com.reslife.api.security.UserDetailsServiceImpl;

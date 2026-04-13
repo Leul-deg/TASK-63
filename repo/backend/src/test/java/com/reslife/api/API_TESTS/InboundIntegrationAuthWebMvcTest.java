@@ -1,7 +1,14 @@
-package com.reslife.api.domain.integration;
+package com.reslife.api.API_TESTS;
 
 import com.reslife.api.config.IntegrationConfig;
 import com.reslife.api.config.SecurityConfig;
+import com.reslife.api.domain.integration.HmacService;
+import com.reslife.api.domain.integration.InboundController;
+import com.reslife.api.domain.integration.IntegrationAuditLogRepository;
+import com.reslife.api.domain.integration.IntegrationAuthFilter;
+import com.reslife.api.domain.integration.IntegrationKey;
+import com.reslife.api.domain.integration.IntegrationKeyRepository;
+import com.reslife.api.domain.integration.IntegrationRateLimiter;
 import com.reslife.api.security.AccountStatusFilter;
 import com.reslife.api.security.UserDetailsServiceImpl;
 import org.junit.jupiter.api.BeforeEach;

@@ -1,7 +1,15 @@
-package com.reslife.api.domain.notification;
+package com.reslife.api.API_TESTS;
 
 import com.reslife.api.config.SecurityConfig;
 import com.reslife.api.domain.integration.IntegrationAuthFilter;
+import com.reslife.api.domain.notification.Notification;
+import com.reslife.api.domain.notification.NotificationCategory;
+import com.reslife.api.domain.notification.NotificationController;
+import com.reslife.api.domain.notification.NotificationPriority;
+import com.reslife.api.domain.notification.NotificationResponse;
+import com.reslife.api.domain.notification.NotificationService;
+import com.reslife.api.domain.notification.NotificationType;
+import com.reslife.api.domain.notification.TemplateResponse;
 import com.reslife.api.domain.user.*;
 import com.reslife.api.security.ReslifeUserDetails;
 import com.reslife.api.security.UserDetailsServiceImpl;

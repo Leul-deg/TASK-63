@@ -1,4 +1,4 @@
-package com.reslife.api.auth;
+package com.reslife.api.API_TESTS;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reslife.api.config.SecurityConfig;
@@ -6,6 +6,9 @@ import com.reslife.api.domain.integration.IntegrationAuthFilter;
 import com.reslife.api.domain.user.*;
 import com.reslife.api.security.ReslifeUserDetails;
 import com.reslife.api.security.UserDetailsServiceImpl;
+import com.reslife.api.auth.AuthController;
+import com.reslife.api.auth.AuthService;
+import com.reslife.api.auth.LoginRequest;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
