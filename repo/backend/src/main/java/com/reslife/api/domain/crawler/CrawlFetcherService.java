@@ -34,6 +34,7 @@ public class CrawlFetcherService {
     private final HttpClient            httpClient;
     private final String                userAgent;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CrawlFetcherService(LocalNetworkValidator localNetworkValidator,
                                 CrawlerProperties props) {
         this(

@@ -6,7 +6,6 @@ import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,7 +43,7 @@ class IntegrationKeyServiceTest {
         when(k.getDescription()).thenReturn("desc");
         when(k.getSecret()).thenReturn("plaintextsecret=");
         when(k.getSecretPrefix()).thenReturn("plaintex");
-        when(k.getAllowedEvents()).thenReturn(List.of());
+        when(k.getAllowedEvents()).thenReturn(null);
         when(k.isActive()).thenReturn(true);
         return k;
     }
@@ -53,7 +52,8 @@ class IntegrationKeyServiceTest {
 
     @Test
     void getKey_returnsKeyResponse_whenFound() {
-        when(keyRepo.findById(KEY_ID)).thenReturn(Optional.of(mockKey()));
+        IntegrationKey key = mockKey();
+        when(keyRepo.findById(KEY_ID)).thenReturn(Optional.of(key));
 
         KeyResponse response = service.getKey(KEY_ID);
 
@@ -76,12 +76,12 @@ class IntegrationKeyServiceTest {
     void createKey_returnsPlaintextSecretExactlyOnce() {
         when(keyRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        CreateKeyRequest req = new CreateKeyRequest("My Key", "desc", List.of("RESIDENT_CREATED"));
+        CreateKeyRequest req = new CreateKeyRequest("My Key", "desc", null);
         CreateKeyResponse response = service.createKey(req, null);
 
         assertThat(response.name()).isEqualTo("My Key");
-        assertThat(response.plaintext()).isNotBlank();
-        assertThat(response.plaintext().length()).isGreaterThan(10);
+        assertThat(response.secret()).isNotBlank();
+        assertThat(response.secret().length()).isGreaterThan(10);
         assertThat(response.keyId()).startsWith("rk_");
     }
 
@@ -91,7 +91,7 @@ class IntegrationKeyServiceTest {
         when(userService.findById(ACTOR_ID)).thenReturn(actor);
         when(keyRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        service.createKey(new CreateKeyRequest("Key", null, List.of()), ACTOR_ID);
+        service.createKey(new CreateKeyRequest("Key", null, null), ACTOR_ID);
 
         verify(userService).findById(ACTOR_ID);
     }
@@ -100,7 +100,7 @@ class IntegrationKeyServiceTest {
     void createKey_skipsActorLookup_whenActorIdIsNull() {
         when(keyRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        service.createKey(new CreateKeyRequest("Key", null, List.of()), null);
+        service.createKey(new CreateKeyRequest("Key", null, null), null);
 
         verify(userService, never()).findById(any());
     }
@@ -113,7 +113,7 @@ class IntegrationKeyServiceTest {
         when(keyRepo.findById(KEY_ID)).thenReturn(Optional.of(k));
         when(keyRepo.save(k)).thenReturn(k);
 
-        service.updateKey(KEY_ID, new CreateKeyRequest("Updated Name", "new desc", List.of()));
+        service.updateKey(KEY_ID, new CreateKeyRequest("Updated Name", "new desc", null));
 
         verify(k).setName("Updated Name");
         verify(k).setDescription("new desc");
@@ -138,23 +138,25 @@ class IntegrationKeyServiceTest {
 
     @Test
     void addWebhook_throwsWhenTargetUrlIsNotLocalNetwork() {
-        when(keyRepo.findById(KEY_ID)).thenReturn(Optional.of(mockKey()));
+        IntegrationKey key = mockKey();
+        when(keyRepo.findById(KEY_ID)).thenReturn(Optional.of(key));
         doThrow(new IllegalArgumentException("Public IP not allowed"))
                 .when(localNetworkValidator).requireLocalTarget(any());
 
         assertThatThrownBy(() -> service.addWebhook(KEY_ID,
-                new CreateWebhookRequest("wh", "http://evil.example.com", List.of())))
+                new CreateWebhookRequest("wh", "http://evil.example.com", "[]")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("not allowed");
     }
 
     @Test
     void addWebhook_returnsSigningSecret_whenLocalUrl() {
-        when(keyRepo.findById(KEY_ID)).thenReturn(Optional.of(mockKey()));
+        IntegrationKey key = mockKey();
+        when(keyRepo.findById(KEY_ID)).thenReturn(Optional.of(key));
         doNothing().when(localNetworkValidator).requireLocalTarget(any());
 
         CreateWebhookResponse response = service.addWebhook(KEY_ID,
-                new CreateWebhookRequest("Internal Hook", "http://10.0.0.5:9000/hook", List.of()));
+                new CreateWebhookRequest("Internal Hook", "http://10.0.0.5:9000/hook", "[]"));
 
         assertThat(response.signingSecret()).isNotBlank();
         assertThat(response.name()).isEqualTo("Internal Hook");

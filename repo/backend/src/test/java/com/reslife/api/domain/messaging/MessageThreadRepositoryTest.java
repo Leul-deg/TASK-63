@@ -132,7 +132,7 @@ class MessageThreadRepositoryTest {
         MessageThread thread = savedThread("Touch Thread");
         Instant originalUpdatedAt = thread.getUpdatedAt();
 
-        Instant newTime = Instant.now().plusSeconds(60);
+        Instant newTime = Instant.now().plusSeconds(60).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         threadRepo.touchUpdatedAt(thread.getId(), newTime);
         em.flush();
         em.clear();

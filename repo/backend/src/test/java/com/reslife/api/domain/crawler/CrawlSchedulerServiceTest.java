@@ -61,8 +61,7 @@ class CrawlSchedulerServiceTest {
 
     @Test
     void rescheduleSource_schedulesCronTrigger_whenSourceHasCron() {
-        when(taskScheduler.schedule(any(Runnable.class), any(CronTrigger.class)))
-                .thenReturn(mockFuture());
+        doReturn(mockFuture()).when(taskScheduler).schedule(any(Runnable.class), any(CronTrigger.class));
 
         scheduler.rescheduleSource(cronSource());
 
@@ -71,8 +70,7 @@ class CrawlSchedulerServiceTest {
 
     @Test
     void rescheduleSource_schedulesFixedRate_whenSourceHasInterval() {
-        when(taskScheduler.scheduleAtFixedRate(any(Runnable.class), any(Duration.class)))
-                .thenReturn(mockFuture());
+        doReturn(mockFuture()).when(taskScheduler).scheduleAtFixedRate(any(Runnable.class), any(Duration.class));
 
         scheduler.rescheduleSource(intervalSource());
 
@@ -106,14 +104,12 @@ class CrawlSchedulerServiceTest {
     @Test
     void rescheduleSource_cancelsPreviousSchedule_beforeRescheduling() {
         ScheduledFuture<Object> oldFuture = mockFuture();
-        when(taskScheduler.schedule(any(Runnable.class), any(CronTrigger.class)))
-                .thenReturn(oldFuture);
+        doReturn(oldFuture).when(taskScheduler).schedule(any(Runnable.class), any(CronTrigger.class));
         scheduler.rescheduleSource(cronSource());
 
         // Reschedule same source — old future must be cancelled
         ScheduledFuture<Object> newFuture = mockFuture();
-        when(taskScheduler.schedule(any(Runnable.class), any(CronTrigger.class)))
-                .thenReturn(newFuture);
+        doReturn(newFuture).when(taskScheduler).schedule(any(Runnable.class), any(CronTrigger.class));
         scheduler.rescheduleSource(cronSource());
 
         verify(oldFuture).cancel(false);
@@ -124,8 +120,7 @@ class CrawlSchedulerServiceTest {
     @Test
     void unscheduleSource_cancelsFuture_whenSourceIsScheduled() {
         ScheduledFuture<Object> future = mockFuture();
-        when(taskScheduler.schedule(any(Runnable.class), any(CronTrigger.class)))
-                .thenReturn(future);
+        doReturn(future).when(taskScheduler).schedule(any(Runnable.class), any(CronTrigger.class));
         scheduler.rescheduleSource(cronSource());
 
         scheduler.unscheduleSource(SOURCE_ID);

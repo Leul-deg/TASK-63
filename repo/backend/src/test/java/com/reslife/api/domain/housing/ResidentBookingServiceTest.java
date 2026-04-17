@@ -71,7 +71,7 @@ class ResidentBookingServiceTest {
 
         when(residentService.findById(RESIDENT_ID)).thenReturn(resident);
         when(policyService.evaluate(eq(RESIDENT_ID), any()))
-                .thenReturn(new BookingPolicyCheckResponse(true, List.of()));
+                .thenReturn(new BookingPolicyCheckResponse(true, false, null, null, null, null, 0L, false, List.of()));
         when(bookingRepository.existsByResidentIdAndRequestedDateAndBuildingNameIgnoreCaseAndStatusIn(
                 any(), any(), any(), any())).thenReturn(false);
         when(userRepository.findById(ACTOR_ID)).thenReturn(Optional.of(actor));
@@ -92,7 +92,7 @@ class ResidentBookingServiceTest {
         Resident resident = mock(Resident.class);
         when(residentService.findById(RESIDENT_ID)).thenReturn(resident);
         when(policyService.evaluate(eq(RESIDENT_ID), any()))
-                .thenReturn(new BookingPolicyCheckResponse(true, List.of()));
+                .thenReturn(new BookingPolicyCheckResponse(true, false, null, null, null, null, 0L, false, List.of()));
         when(bookingRepository.existsByResidentIdAndRequestedDateAndBuildingNameIgnoreCaseAndStatusIn(
                 any(), any(), any(), any())).thenReturn(false);
         when(bookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -109,7 +109,7 @@ class ResidentBookingServiceTest {
         Resident resident = mock(Resident.class);
         when(residentService.findById(RESIDENT_ID)).thenReturn(resident);
         when(policyService.evaluate(eq(RESIDENT_ID), any()))
-                .thenReturn(new BookingPolicyCheckResponse(false, List.of("Outside booking window")));
+                .thenReturn(new BookingPolicyCheckResponse(false, false, null, null, null, null, 0L, false, List.of("Outside booking window")));
 
         ResidentBookingRequest request = new ResidentBookingRequest(
                 LocalDate.of(2020, 1, 1), "Maple Hall", null, null, null);
@@ -126,7 +126,7 @@ class ResidentBookingServiceTest {
         Resident resident = mock(Resident.class);
         when(residentService.findById(RESIDENT_ID)).thenReturn(resident);
         when(policyService.evaluate(eq(RESIDENT_ID), any()))
-                .thenReturn(new BookingPolicyCheckResponse(true, List.of()));
+                .thenReturn(new BookingPolicyCheckResponse(true, false, null, null, null, null, 0L, false, List.of()));
         when(bookingRepository.existsByResidentIdAndRequestedDateAndBuildingNameIgnoreCaseAndStatusIn(
                 any(), any(), any(), any())).thenReturn(true);
 

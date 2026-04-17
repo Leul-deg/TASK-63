@@ -3,12 +3,12 @@ package com.reslife.api;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reslife.api.domain.user.*;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -49,7 +49,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "spring.jpa.hibernate.ddl-auto=create-drop",
     "spring.flyway.enabled=false",
     "app.encryption.key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-    "spring.session.store-type=none",
+    "spring.session.store-type=jdbc",
+    "spring.session.jdbc.initialize-schema=always",
     "spring.jpa.show-sql=false",
     "logging.level.org.springframework.security=WARN",
     "logging.level.org.hibernate.SQL=WARN"
@@ -62,11 +63,11 @@ class FullStackIntegrationTest {
     @Autowired private PasswordEncoder    passwordEncoder;
     @Autowired private ObjectMapper       objectMapper;
 
-    /** Populated by test 11; consumed by test 12. */
+    /** Populated by test 11; consumed by tests 12–13 and 20. */
     private UUID createdResidentId;
 
-    private static final String USERNAME = "integ-staff";
-    private static final String PASSWORD = "Integration@Test123";
+    private static final String USERNAME   = "integ-staff";
+    private static final String PASSWORD   = "Integration@Test123";
     private static final String LOGIN_BODY =
             "{\"identifier\":\"" + USERNAME + "\",\"password\":\"" + PASSWORD + "\"}";
 
@@ -74,7 +75,6 @@ class FullStackIntegrationTest {
 
     @BeforeAll
     void seedTestUser() {
-        // Persist a RESIDENCE_STAFF role and an ACTIVE user for the full auth flow.
         Role staffRole = new Role(RoleName.RESIDENCE_STAFF, "Staff (integration test)");
         roleRepository.save(staffRole);
 
@@ -87,10 +87,27 @@ class FullStackIntegrationTest {
         user.setAccountStatus(AccountStatus.ACTIVE);
         User saved = userRepository.save(user);
 
-        // Cascade the role assignment through the user's collection.
         UserRole userRole = new UserRole(saved, staffRole);
         saved.getUserRoles().add(userRole);
         userRepository.save(saved);
+    }
+
+    // ── Helper ─────────────────────────────────────────────────────────────────
+
+    /** Logs in and returns the SESSION cookie from the response. */
+    private Cookie login() throws Exception {
+        MvcResult r = mockMvc.perform(post("/api/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(LOGIN_BODY))
+                .andReturn();
+        Cookie c = r.getResponse().getCookie("SESSION");
+        if (c == null) {
+            throw new IllegalStateException(
+                "Login did not produce a SESSION cookie – response status: "
+                + r.getResponse().getStatus());
+        }
+        return c;
     }
 
     // ── Public endpoints ──────────────────────────────────────────────────────
@@ -136,21 +153,19 @@ class FullStackIntegrationTest {
 
     @Test @Order(6)
     void login_withWrongPassword_returns401() throws Exception {
-        String badBody = "{\"identifier\":\"" + USERNAME + "\",\"password\":\"wrong\"}";
         mockMvc.perform(post("/api/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(badBody))
+                        .content("{\"identifier\":\"" + USERNAME + "\",\"password\":\"wrong\"}"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test @Order(7)
     void login_withUnknownUser_returns401() throws Exception {
-        String badBody = "{\"identifier\":\"nobody\",\"password\":\"any\"}";
         mockMvc.perform(post("/api/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(badBody))
+                        .content("{\"identifier\":\"nobody\",\"password\":\"any\"}"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -158,15 +173,9 @@ class FullStackIntegrationTest {
 
     @Test @Order(8)
     void me_afterLogin_returnsAuthenticatedUserFromDatabase() throws Exception {
-        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(LOGIN_BODY))
-                .andReturn();
+        Cookie session = login();
 
-        MockHttpSession session = (MockHttpSession) loginResult.getRequest().getSession();
-
-        mockMvc.perform(get("/api/auth/me").session(session))
+        mockMvc.perform(get("/api/auth/me").cookie(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value(USERNAME))
                 .andExpect(jsonPath("$.email").value("integ-staff@reslife-test.internal"));
@@ -174,16 +183,9 @@ class FullStackIntegrationTest {
 
     @Test @Order(9)
     void residentsEndpoint_withStaffSession_returnsEmptyPage() throws Exception {
-        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(LOGIN_BODY))
-                .andReturn();
+        Cookie session = login();
 
-        MockHttpSession session = (MockHttpSession) loginResult.getRequest().getSession();
-
-        // Empty DB → empty page; content must be an array and totalElements must be 0.
-        mockMvc.perform(get("/api/residents").session(session))
+        mockMvc.perform(get("/api/residents").cookie(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.totalElements").value(0));
@@ -191,48 +193,27 @@ class FullStackIntegrationTest {
 
     @Test @Order(10)
     void logout_invalidatesSession_causingSubsequentMeToReturn401() throws Exception {
-        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(LOGIN_BODY))
-                .andReturn();
+        Cookie session = login();
 
-        MockHttpSession session = (MockHttpSession) loginResult.getRequest().getSession();
-
-        // Logout
-        mockMvc.perform(post("/api/auth/logout")
-                        .with(csrf())
-                        .session(session))
+        mockMvc.perform(post("/api/auth/logout").with(csrf()).cookie(session))
                 .andExpect(status().isNoContent());
 
-        // Same session is now invalid
-        mockMvc.perform(get("/api/auth/me").session(session))
+        mockMvc.perform(get("/api/auth/me").cookie(session))
                 .andExpect(status().isUnauthorized());
-    }
-
-    // ── Helper ─────────────────────────────────────────────────────────────────
-
-    private MockHttpSession getStaffSession() throws Exception {
-        MvcResult r = mockMvc.perform(post("/api/auth/login")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(LOGIN_BODY))
-                .andReturn();
-        return (MockHttpSession) r.getRequest().getSession();
     }
 
     // ── Resident CRUD (no-mock, real DB) ──────────────────────────────────────
 
     @Test @Order(11)
     void createResident_withStaffSession_returns201AndPersistsRecord() throws Exception {
-        MockHttpSession session = getStaffSession();
+        Cookie session = login();
         String body = """
                 {"firstName":"Integration","lastName":"Resident","email":"integ.resident@test.internal"}
                 """;
 
         MvcResult result = mockMvc.perform(post("/api/residents")
                         .with(csrf())
-                        .session(session)
+                        .cookie(session)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
@@ -246,9 +227,9 @@ class FullStackIntegrationTest {
 
     @Test @Order(12)
     void getResidentById_withStaffSession_returnsCreatedResident() throws Exception {
-        MockHttpSession session = getStaffSession();
+        Cookie session = login();
 
-        mockMvc.perform(get("/api/residents/" + createdResidentId).session(session))
+        mockMvc.perform(get("/api/residents/" + createdResidentId).cookie(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(createdResidentId.toString()))
                 .andExpect(jsonPath("$.lastName").value("Resident"));
@@ -256,14 +237,14 @@ class FullStackIntegrationTest {
 
     @Test @Order(13)
     void updateResident_withStaffSession_returns200() throws Exception {
-        MockHttpSession session = getStaffSession();
+        Cookie session = login();
         String updated = """
                 {"firstName":"Updated","lastName":"Resident","email":"integ.resident@test.internal"}
                 """;
 
         mockMvc.perform(put("/api/residents/" + createdResidentId)
                         .with(csrf())
-                        .session(session)
+                        .cookie(session)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(updated))
                 .andExpect(status().isOk())
@@ -274,44 +255,45 @@ class FullStackIntegrationTest {
 
     @Test @Order(14)
     void notificationsEndpoint_withStaffSession_returnsPagedResponse() throws Exception {
-        MockHttpSession session = getStaffSession();
+        Cookie session = login();
 
-        mockMvc.perform(get("/api/notifications").session(session))
+        mockMvc.perform(get("/api/notifications").cookie(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
     }
 
     @Test @Order(15)
     void messageThreadsEndpoint_withStaffSession_returnsArray() throws Exception {
-        MockHttpSession session = getStaffSession();
+        Cookie session = login();
 
-        mockMvc.perform(get("/api/messages/threads").session(session))
+        mockMvc.perform(get("/api/messages/threads").cookie(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
     }
 
     @Test @Order(16)
-    void moveInRecordsEndpoint_withStaffSession_returnsPagedResponse() throws Exception {
-        MockHttpSession session = getStaffSession();
+    void moveInRecordsEndpoint_withStaffSession_returnsListForResident() throws Exception {
+        Cookie session = login();
 
-        mockMvc.perform(get("/api/housing/move-in-records").session(session))
+        mockMvc.perform(get("/api/residents/" + createdResidentId + "/move-in-records").cookie(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray());
+                .andExpect(jsonPath("$").isArray());
     }
 
     @Test @Order(17)
-    void analyticsEndpoint_withStaffSession_returnsOk() throws Exception {
-        MockHttpSession session = getStaffSession();
+    void analyticsEndpoint_withStaffSession_returns403() throws Exception {
+        Cookie session = login();
 
-        mockMvc.perform(get("/api/admin/analytics/dashboard").session(session))
-                .andExpect(status().isOk());
+        // /api/admin/** requires ADMIN or HOUSING_ADMINISTRATOR role; RESIDENCE_STAFF is denied
+        mockMvc.perform(get("/api/admin/analytics/dashboard").cookie(session))
+                .andExpect(status().isForbidden());
     }
 
     @Test @Order(18)
-    void notificationPreferencesEndpoint_withStaffSession_returnsOk() throws Exception {
-        MockHttpSession session = getStaffSession();
+    void notificationTemplatesEndpoint_withStaffSession_returnsOk() throws Exception {
+        Cookie session = login();
 
-        mockMvc.perform(get("/api/notifications/preferences").session(session))
+        mockMvc.perform(get("/api/notifications/templates").cookie(session))
                 .andExpect(status().isOk());
     }
 
@@ -319,20 +301,20 @@ class FullStackIntegrationTest {
 
     @Test @Order(19)
     void adminUsersEndpoint_withStaffSession_returns403() throws Exception {
-        MockHttpSession session = getStaffSession();
+        Cookie session = login();
 
-        // RESIDENCE_STAFF does not have ADMIN privileges
-        mockMvc.perform(get("/api/admin/users").session(session))
+        mockMvc.perform(get("/api/admin/users").cookie(session))
                 .andExpect(status().isForbidden());
     }
 
     @Test @Order(20)
-    void deleteResident_withStaffSession_returns204() throws Exception {
-        MockHttpSession session = getStaffSession();
+    void deleteResident_withStaffSession_returns403() throws Exception {
+        Cookie session = login();
 
+        // DELETE /api/residents/{id} requires ADMIN/HOUSING_ADMINISTRATOR/DIRECTOR
         mockMvc.perform(delete("/api/residents/" + createdResidentId)
                         .with(csrf())
-                        .session(session))
-                .andExpect(status().isNoContent());
+                        .cookie(session))
+                .andExpect(status().isForbidden());
     }
 }
