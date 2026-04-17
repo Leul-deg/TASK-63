@@ -8,49 +8,56 @@ Local-only, on-prem portal for managing residential life operations: resident di
 
 ### Prerequisites
 
-| Tool | Version |
-|------|---------|
-| Docker + Docker Compose | any recent |
-| Java | 21 |
-| Maven | 3.9+ |
-| Node.js | 20+ |
+| Tool | Required for | Version |
+|------|-------------|---------|
+| Docker + Docker Compose | Running the full application and tests | any recent |
 
-### 1 — Start PostgreSQL
+> **That's it.** The compose stack builds and runs the backend, frontend, and database — no local Java, Maven, or Node.js installation required.
 
-```bash
-export POSTGRES_DB=reslife
-export POSTGRES_USER=reslife
-export POSTGRES_PASSWORD=reslife
-docker compose up -d
-```
-
-By default the compose stack publishes PostgreSQL on port `55432` so it does not collide with a locally running database on `5432`.
-Override it if you prefer:
+### Start the full application
 
 ```bash
-RESLIFE_DB_PORT=5432 docker compose up -d
+docker compose up --build
 ```
 
-### 2 — Start the backend
+The first build downloads dependencies and compiles the app (3–5 minutes). Subsequent starts are fast thanks to Docker layer caching.
+
+Once running:
+- **Frontend:** http://localhost:3000
+- **Backend API:** http://localhost:8080
+- **Swagger UI:** http://localhost:8080/swagger-ui.html
+- **Health check:** `curl http://localhost:8080/api/health` → `{"status":"ok"}`
+
+Flyway runs all migrations automatically on startup. The dev seed data (V13, V14, V17) populates sample residents, agreements, messages, notifications, and the three login accounts below.
+
+---
+
+### Manual dev setup (optional — for local hot-reload)
+
+If you prefer to run services individually for faster iteration:
+
+**1 — Start PostgreSQL only**
+
+```bash
+docker compose up postgres -d
+```
+
+**2 — Start the backend**
 
 ```bash
 export SPRING_PROFILES_ACTIVE=local
-export SPRING_DATASOURCE_USERNAME="$POSTGRES_USER"
-export SPRING_DATASOURCE_PASSWORD="$POSTGRES_PASSWORD"
+export SPRING_DATASOURCE_USERNAME=reslife
+export SPRING_DATASOURCE_PASSWORD=secret123
 export RESLIFE_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 cd backend
 ./mvnw spring-boot:run
 ```
 
-Health check: `curl http://localhost:8080/api/health` → `{"status":"ok"}`
-
-Flyway runs all migrations automatically on startup. The dev seed data (V13, V14, V17) populates sample residents, agreements, messages, notifications, and the three login accounts below.
-
-### 3 — Start the frontend
+**3 — Start the frontend**
 
 ```bash
 cd frontend
-npm install
+npm install   # first time only
 npm start
 ```
 
@@ -70,6 +77,8 @@ All passwords are `password` (BCrypt cost 12, matching the production encoder).
 
 > **Reseed note:** If you need to recreate dev passwords (e.g. after a schema reset),
 > migration V17 re-hashes them at cost 12 automatically on next startup.
+
+> **Production warning:** These accounts are seeded by Flyway migration V14. Before deploying to production, delete them via `DELETE /api/admin/users/{id}` or remove them from migration V14. Deploying with these defaults exposes an admin account with the password `password`.
 
 ---
 
@@ -181,23 +190,31 @@ Staff can create, list, and update resident bookings from the resident directory
 
 ## Running tests
 
-### Backend (JUnit 5)
+### All tests at once (Docker, no local Java/Node required)
+
+```bash
+bash .run-tests.sh
+```
+
+Runs the full backend and frontend test suites inside Docker containers. Maven and Node.js dependency caches are stored under `.cache/test-runner/` so subsequent runs are fast.
+
+### Backend only (JUnit 5)
 
 ```bash
 cd backend
 ./mvnw test
 ```
 
-Backend tests cover auth service/controller behavior, integration HMAC/rate-limit/local-network validation, inbound integration filter/controller behavior, booking policy and booking creation boundaries, notification access control, import preview duplicate matching, and attachment validation/controller ownership checks.
+Backend tests cover HTTP-layer access control (all REST endpoints, role enforcement, 401/403 boundaries), service-layer business logic, integration HMAC/rate-limit/local-network validation, booking policy enforcement, notification access control and inbox operations, crawler source/job lifecycle, admin user and analytics endpoints, housing agreements and attachments, and import/export duplicate matching.
 
-### Frontend (React Testing Library)
+### Frontend only (React Testing Library)
 
 ```bash
 cd frontend
 npm test
 ```
 
-Frontend tests cover the app shell/login page plus the resident booking page’s load/create flow.
+Frontend tests cover the login page, resident directory, student self-service, notifications, messages, import/export, bookings, analytics dashboard, integration key management, and the resident form page.
 
 ---
 
@@ -229,7 +246,7 @@ Required environment variables:
 
 - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` for the local compose database
 - `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` for backend startup
-- `RESLIFE_ENCRYPTION_KEY` for AES-256-GCM field encryption
+- `RESLIFE_ENCRYPTION_KEY` for AES-256-GCM field encryption — **persist this value** across restarts; changing it will make previously encrypted data (date of birth) unreadable
 - `SPRING_PROFILES_ACTIVE=local` for local non-TLS cookie settings
 - Optional: `SPRING_DATASOURCE_URL`, `RESLIFE_DB_PORT`
 

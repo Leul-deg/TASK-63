@@ -43,6 +43,9 @@ describe('ResidentFormPage', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    // jsdom does not expose crypto.randomUUID; provide a deterministic stub.
+    let _seq = 0;
+    global.crypto = { randomUUID: () => `test-uuid-${_seq++}` };
     api.get.mockImplementation((path) => {
       if (path === '/api/residents/filter-options') {
         return Promise.resolve({ buildings: ['Maple Hall'], classYears: [2027] });
@@ -68,6 +71,67 @@ describe('ResidentFormPage', () => {
   afterEach(() => {
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
+  });
+
+  test('shows "New Resident" heading in create mode', async () => {
+    await act(async () => {
+      render(<ResidentFormPage />);
+    });
+    expect(screen.getByText('New Resident')).toBeInTheDocument();
+  });
+
+  test('shows firstName validation error when Next is clicked with empty basics', async () => {
+    await act(async () => {
+      render(<ResidentFormPage />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    });
+
+    expect(await screen.findByText(/first name is required/i)).toBeInTheDocument();
+  });
+
+  test('clicking Next with valid basics advances to the Enrollment step', async () => {
+    let container;
+    await act(async () => {
+      ({ container } = render(<ResidentFormPage />));
+    });
+
+    completeBasicsStep(container);
+    await act(async () => { jest.advanceTimersByTime(700); });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    });
+
+    expect(await screen.findByText(/enrollment & classification/i)).toBeInTheDocument();
+  });
+
+  test('add contact button on the Contacts step appends a new contact row', async () => {
+    let container;
+    await act(async () => {
+      ({ container } = render(<ResidentFormPage />));
+    });
+
+    completeBasicsStep(container);
+    await act(async () => { jest.advanceTimersByTime(700); });
+
+    // Step 0 → Step 1 (Enrollment)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    });
+
+    // Step 1 → Step 2 (Emergency Contacts)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    });
+
+    // Heading confirms we're on the Emergency Contacts step (step indicator also
+    // contains the text, so use the heading role to disambiguate).
+    expect(screen.getByRole('heading', { name: /emergency contacts/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /add contact/i }));
+    expect(screen.getByPlaceholderText(/full name/i)).toBeInTheDocument();
   });
 
   test('shows duplicate warning after debounced self-check', async () => {

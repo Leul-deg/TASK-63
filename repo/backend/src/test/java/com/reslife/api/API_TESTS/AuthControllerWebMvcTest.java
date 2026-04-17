@@ -95,6 +95,14 @@ class AuthControllerWebMvcTest {
                .andExpect(status().isNoContent());
     }
 
+    @Test
+    void csrf_returnsTokenWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/api/auth/csrf"))
+               .andExpect(status().isOk())
+               .andExpect(jsonPath("$.headerName").exists())
+               .andExpect(jsonPath("$.parameterName").exists());
+    }
+
     private static RequestPostProcessor asUser(UUID userId, RoleName roleName) {
         ReslifeUserDetails details = buildDetails(userId, roleName);
         UsernamePasswordAuthenticationToken token =

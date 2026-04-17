@@ -22,6 +22,57 @@ describe('ResidentBookingsPage', () => {
     jest.clearAllMocks();
   });
 
+  test('shows error when the initial load fails', async () => {
+    api.get.mockRejectedValue(new Error('Server error'));
+    render(<ResidentBookingsPage />);
+    expect(await screen.findByText(/server error/i)).toBeInTheDocument();
+  });
+
+  test('shows empty booking history message when no bookings exist', async () => {
+    api.get
+      .mockResolvedValueOnce({ id: 'resident-1', firstName: 'Alex', lastName: 'Chen', buildingName: '', roomNumber: '' })
+      .mockResolvedValueOnce([]);
+    render(<ResidentBookingsPage />);
+    expect(await screen.findByText(/no bookings yet/i)).toBeInTheDocument();
+  });
+
+  test('shows validation error when required fields are missing on submit', async () => {
+    api.get
+      .mockResolvedValueOnce({ id: 'resident-1', firstName: 'Alex', lastName: 'Chen', buildingName: '', roomNumber: '' })
+      .mockResolvedValueOnce([]);
+    render(<ResidentBookingsPage />);
+    await screen.findByRole('button', { name: /create booking/i });
+
+    fireEvent.click(screen.getByRole('button', { name: /create booking/i }));
+
+    expect(await screen.findByText(/requested date and building are required/i)).toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  test('updating a booking status calls api.patch with the new status', async () => {
+    const booking = {
+      id: 'booking-1', requestedDate: '2026-04-15',
+      buildingName: 'Maple Hall', roomNumber: '101',
+      purpose: 'Visit', status: 'REQUESTED',
+    };
+    api.get
+      .mockResolvedValueOnce({ id: 'resident-1', firstName: 'Alex', lastName: 'Chen', buildingName: 'Maple Hall', roomNumber: '101' })
+      .mockResolvedValueOnce([booking]);
+    api.patch.mockResolvedValueOnce({ ...booking, status: 'CONFIRMED' });
+    window.prompt = jest.fn().mockReturnValue('');
+
+    render(<ResidentBookingsPage />);
+    await screen.findByText('REQUESTED');
+    fireEvent.click(screen.getByRole('button', { name: /^confirm$/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith(
+        '/api/residents/resident-1/bookings/booking-1/status',
+        expect.objectContaining({ status: 'CONFIRMED' }),
+      );
+    });
+  });
+
   test('renders existing bookings', async () => {
     api.get
       .mockResolvedValueOnce({ id: 'resident-1', firstName: 'Alex', lastName: 'Chen', buildingName: 'Maple Hall', roomNumber: '101' })

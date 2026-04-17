@@ -18,5 +18,30 @@ services:
       retries: 5
     restart: unless-stopped
 
+  backend:
+    build: ./backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/reslife
+      SPRING_DATASOURCE_USERNAME: reslife
+      SPRING_DATASOURCE_PASSWORD: secret123
+      # Generate a stable key for local dev: openssl rand -base64 32
+      # IMPORTANT: in production, inject this via a secret manager — never commit it.
+      RESLIFE_ENCRYPTION_KEY: ${RESLIFE_ENCRYPTION_KEY:-dGhpcyBpcyBhIGxvY2FsLWRldiBwbGFjZWhvbGRlcgo=}
+      SPRING_PROFILES_ACTIVE: local
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   pgdata:
