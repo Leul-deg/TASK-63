@@ -1,4 +1,4 @@
-# Residential Life Operations Portal
+# Residential Life Operations Portal — Fullstack
 
 Local-only, on-prem portal for managing residential life operations: resident directory, housing agreements, room bookings, messaging, notifications, analytics, data collection, and local system integrations.
 
@@ -17,8 +17,10 @@ Local-only, on-prem portal for managing residential life operations: resident di
 ### Start the full application
 
 ```bash
-docker compose up --build
+docker-compose up --build
 ```
+
+> Both `docker-compose` (v1) and `docker compose` (v2 plug-in) are accepted; the command above uses the v1 form required by the test harness. If your environment only has the v2 plug-in, substitute `docker compose up --build`.
 
 The first build downloads dependencies and compiles the app (3–5 minutes). Subsequent starts are fast thanks to Docker layer caching.
 
@@ -32,48 +34,33 @@ Flyway runs all migrations automatically on startup. The dev seed data (V13, V14
 
 ---
 
-### Manual dev setup (optional — for local hot-reload)
-
-If you prefer to run services individually for faster iteration:
-
-**1 — Start PostgreSQL only**
-
-```bash
-docker compose up postgres -d
-```
-
-**2 — Start the backend**
-
-```bash
-export SPRING_PROFILES_ACTIVE=local
-export SPRING_DATASOURCE_USERNAME=reslife
-export SPRING_DATASOURCE_PASSWORD=secret123
-export RESLIFE_ENCRYPTION_KEY="$(openssl rand -base64 32)"
-cd backend
-./mvnw spring-boot:run
-```
-
-**3 — Start the frontend**
-
-```bash
-cd frontend
-npm install   # first time only
-npm start
-```
-
-Opens at http://localhost:3000. The `proxy` field in `package.json` forwards all `/api/**` calls to the backend on port 8080.
-
----
-
 ## Dev login accounts
 
 All passwords are `password` (BCrypt cost 12, matching the production encoder).
 
-| Username | Role | Email |
-|----------|------|-------|
-| `admin` | Admin | admin@reslife.local |
-| `staff` | Residence Staff | staff@reslife.local |
-| `student` | Student | student@reslife.local |
+### Seeded credentials (migration V14)
+
+| Username | Password | Role | Access level | Email |
+|----------|----------|------|--------------|-------|
+| `admin` | `password` | `ADMIN` | Full system access — user management, analytics, crawler, integration keys, booking policy | admin@reslife.local |
+| `staff` | `password` | `RESIDENCE_STAFF` | Front-desk operations — resident directory, housing agreements, messaging, bookings, notifications | staff@reslife.local |
+| `student` | `password` | `STUDENT` | Self-service — own housing record, bookings (read-only), messaging with staff | student@reslife.local |
+
+### Full role inventory
+
+The system defines the following roles (see `RoleName.java`). Roles not in the seed table above can be assigned to any user via `PATCH /api/admin/users/{id}/status` or by an admin in the User Management screen.
+
+| Role | Description | Dev account seeded |
+|------|-------------|-------------------|
+| `ADMIN` | Full system access; manages users, config, and all admin-only endpoints | `admin` |
+| `HOUSING_ADMINISTRATOR` | Full housing operations and sensitive data access; equivalent to `ADMIN` on housing endpoints | _(assign via admin UI)_ |
+| `RESIDENCE_STAFF` | Day-to-day residence operations; full sensitive-data access | `staff` |
+| `DIRECTOR` | Director-level read/approve access | _(assign via admin UI)_ |
+| `RESIDENT_DIRECTOR` | Manages a specific residence building's operations | _(assign via admin UI)_ |
+| `RESIDENT_ASSISTANT` | Limited front-desk assist; read access to residents and messaging | _(assign via admin UI)_ |
+| `STAFF` | Generic staff access without sensitive-data clearance | _(assign via admin UI)_ |
+| `READ_ONLY` | Read-only access to resident directory and analytics | _(assign via admin UI)_ |
+| `STUDENT` | Student self-service portal; own data only | `student` |
 
 > **Reseed note:** If you need to recreate dev passwords (e.g. after a schema reset),
 > migration V17 re-hashes them at cost 12 automatically on next startup.
@@ -190,31 +177,17 @@ Staff can create, list, and update resident bookings from the resident directory
 
 ## Running tests
 
-### All tests at once (Docker, no local Java/Node required)
+### All tests at once (Docker — no local Java or Node required)
 
 ```bash
-bash .run-tests.sh
+bash run_tests.sh
 ```
 
-Runs the full backend and frontend test suites inside Docker containers. Maven and Node.js dependency caches are stored under `.cache/test-runner/` so subsequent runs are fast.
+Delegates to `.run-tests.sh`, which executes the full backend (JUnit 5 / Maven) and frontend (Jest / React Testing Library) suites inside isolated Docker containers. Maven and Node.js dependency caches are stored under `.cache/test-runner/` so subsequent runs are fast.
 
-### Backend only (JUnit 5)
+**Backend tests** cover HTTP-layer access control (all REST endpoints, role enforcement, 401/403 boundaries), service-layer business logic, integration HMAC/rate-limit/local-network validation, booking policy enforcement, notification access control and inbox operations, crawler source/job lifecycle, admin user and analytics endpoints, housing agreements and attachments, and import/export duplicate matching.
 
-```bash
-cd backend
-./mvnw test
-```
-
-Backend tests cover HTTP-layer access control (all REST endpoints, role enforcement, 401/403 boundaries), service-layer business logic, integration HMAC/rate-limit/local-network validation, booking policy enforcement, notification access control and inbox operations, crawler source/job lifecycle, admin user and analytics endpoints, housing agreements and attachments, and import/export duplicate matching.
-
-### Frontend only (React Testing Library)
-
-```bash
-cd frontend
-npm test
-```
-
-Frontend tests cover the login page, resident directory, student self-service, notifications, messages, import/export, bookings, analytics dashboard, integration key management, and the resident form page.
+**Frontend tests** cover the login page, resident directory, student self-service, notifications, messages, import/export, bookings, analytics dashboard, integration key management, and the resident form page.
 
 ---
 

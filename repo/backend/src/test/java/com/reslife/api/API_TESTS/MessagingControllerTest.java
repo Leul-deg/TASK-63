@@ -15,6 +15,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -85,6 +86,7 @@ class MessagingControllerTest {
         when(messagingService.createThread(any(), any())).thenReturn(stubThread);
         when(messagingService.getThread(any(), any(), any())).thenReturn(stubDetail);
         when(messagingService.sendMessage(any(), any(), any())).thenReturn(stubMsg);
+        when(messagingService.sendImageMessage(any(), any(), any())).thenReturn(stubMsg);
         when(messagingService.pollMessages(any(), any(), any(), any())).thenReturn(List.of(stubMsg));
         doNothing().when(messagingService).deleteMessage(any(), any());
         when(messagingService.listQuickReplies()).thenReturn(
@@ -163,6 +165,32 @@ class MessagingControllerTest {
                                 """))
                .andExpect(status().isCreated())
                .andExpect(jsonPath("$.id").value(MSG_ID.toString()));
+    }
+
+    // ── Send image ─────────────────────────────────────────────────────────────
+
+    @Test
+    void authenticated_canSendImageMessage() throws Exception {
+        MockMultipartFile image = new MockMultipartFile(
+                "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "fake-jpg-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/messages/threads/{id}/messages/image", THREAD_ID)
+                        .file(image)
+                        .with(asUser(USER_ID, RoleName.STUDENT))
+                        .with(csrf()))
+               .andExpect(status().isCreated())
+               .andExpect(jsonPath("$.id").value(MSG_ID.toString()));
+    }
+
+    @Test
+    void unauthenticated_cannotSendImageMessage() throws Exception {
+        MockMultipartFile image = new MockMultipartFile(
+                "file", "photo.jpg", MediaType.IMAGE_JPEG_VALUE, "fake-jpg-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/messages/threads/{id}/messages/image", THREAD_ID)
+                        .file(image)
+                        .with(csrf()))
+               .andExpect(status().isUnauthorized());
     }
 
     // ── Poll messages ──────────────────────────────────────────────────────────
